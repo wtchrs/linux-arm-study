@@ -1,0 +1,13 @@
+linux/
+busybox/
+out-*/
+
+*.tar.xz
+toolchain/
+
+initramfs/
+initramfs.cpio.gz
+
+compile_commands.json
+
+**/*.log

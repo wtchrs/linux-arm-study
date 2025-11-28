@@ -1,0 +1,38 @@
+diff --git a/kernel/irq/proc.c b/kernel/irq/proc.c
+index e8c655b7a..98fe4c2ca 100644
+--- a/kernel/irq/proc.c
++++ b/kernel/irq/proc.c
+@@ -471,6 +471,21 @@ int __weak arch_show_interrupts(struct seq_file *p, int prec)
+ # define ACTUAL_NR_IRQS nr_irqs
+ #endif
+ 
++static void get_interrupt_info(struct irqaction *action_p)
++{
++	unsigned int irq_num = action_p->irq;
++	void * irq_handler = NULL;
++
++	if (action_p->handler) {
++		irq_handler = (void*) action_p->handler;
++	}
++
++	if (irq_handler) {
++		trace_printk("[%s] %d: %s, irq_handler: %pS \n",
++			     current->comm, irq_num, action_p->name, irq_handler);
++	}
++}
++
+ int show_interrupts(struct seq_file *p, void *v)
+ {
+ 	static int prec;
+@@ -536,6 +551,11 @@ int show_interrupts(struct seq_file *p, void *v)
+ 		seq_printf(p, "-%-8s", desc->name);
+ 
+ 	action = desc->action;
++
++	if (action) {
++		get_interrupt_info(action);
++	}
++
+ 	if (action) {
+ 		seq_printf(p, "  %s", action->name);
+ 		while ((action = action->next) != NULL)
