@@ -167,6 +167,11 @@ defconfig() {
         --enable CONFIG_VIRTIO_MMIO \
         --enable CONFIG_VIRTIO_MMIO_CMDLINE_DEVICES \
         --enable CONFIG_VIRTIO_NET \
+        --enable CONFIG_9P_FS \
+        --enable CONFIG_NET_9P \
+        --enable CONFIG_NET_9P_VIRTIO \
+        --enable CONFIG_9P_FS_POSIX_ACL \
+        --enable CONFIG_9P_FS_SECURITY \
         --enable CONFIG_FTRACE \
         --enable CONFIG_FUNCTION_TRACER \
         --enable CONFIG_DYNAMIC_FTRACE \
