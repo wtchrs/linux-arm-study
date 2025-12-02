@@ -2,6 +2,9 @@ linux/
 busybox/
 out-*/
 
+*.tar.gz
+*.qcow2
+
 *.tar.xz
 toolchain/
 

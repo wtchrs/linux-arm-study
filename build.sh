@@ -48,13 +48,21 @@ trap cleanup EXIT
 # ---------------------------------------------------------
 # Architecture-specific settings
 # ---------------------------------------------------------
+
+# default defconfig
+DEFCONFIG_TARGET=defconfig
+
 case "$ARCH" in
 arm64)
-    DEFCONFIG_TARGET=bcm2711_defconfig
+    if [ "$RASPBERRY_PI" == 1 ]; then
+        DEFCONFIG_TARGET=bcm2711_defconfig
+    fi
     IMAGE_TARGET=Image
     ;;
 arm)
-    DEFCONFIG_TARGET=bcm2709_defconfig
+    if [ "$RASPBERRY_PI" == 1 ]; then
+        DEFCONFIG_TARGET=bcm2709_defconfig
+    fi
     IMAGE_TARGET=zImage
     ;;
 *)
@@ -65,7 +73,11 @@ esac
 
 MAKE_FLAGS="-C $SOURCE_PATH O=$OUTPUT_PATH EXTRAVERSION=$EXTRAVERSION"
 
-BUILD_TARGETS="$IMAGE_TARGET modules dtbs"
+if [ "$RASPBERRY_PI" == 1 ]; then
+    BUILD_TARGETS="$IMAGE_TARGET modules dtbs"
+else
+    BUILD_TARGETS="$IMAGE_TARGET modules"
+fi
 
 # -------------------------------------------
 # Utilities
@@ -120,6 +132,8 @@ fetch() {
         echo "${YELLOW}$SOURCE_PATH already exists${RESET}"
     else
         echo "${GREEN}Cloning kernel repository...${RESET}"
+        echo "${GREEN}SOURCE_REPO   = ${SOURCE_REPO}${RESET}"
+        echo "${GREEN}SOURCE_BRANCH = ${SOURCE_BRANCH}${RESET}"
         git clone --depth=1 --branch "$SOURCE_BRANCH" "$SOURCE_REPO" "$SOURCE_PATH"
     fi
 }
@@ -162,6 +176,7 @@ defconfig() {
     echo "${GREEN}[CONFIG] Applying custom config enables...${RESET}"
     "$CONFIG_SCRIPT" --file "$OUTPUT_PATH/.config" \
         --enable CONFIG_VIRTIO \
+        --enable CONFIG_VIRTIO_PCI \
         --enable CONFIG_VIRTIO_BALLOON \
         --enable CONFIG_VIRTIO_BLK \
         --enable CONFIG_VIRTIO_MMIO \

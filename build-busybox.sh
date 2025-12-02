@@ -19,6 +19,20 @@ BOLD=$(tput bold)
 RESET=$(tput sgr0)
 
 # ----------------------------
+# Clone busybox
+# ----------------------------
+if [ ! -d "$SOURCE_PATH/.git" ]; then
+    echo "${GREEN}[FETCH] Cloning BusyBox repository...${RESET}"
+    git clone --depth=1 --branch="$SOURCE_BRANCH" "$SOURCE_REPO" "$SOURCE_PATH"
+    (
+        cd "$SOURCE_PATH"
+        git apply "$SCRIPT_DIR/busybox-ncurses.patch"
+    )
+else
+    echo "${YELLOW}[FETCH] BusyBox source already exists${RESET}"
+fi
+
+# ----------------------------
 # Fetch toolchain
 # ----------------------------
 TOOLCHAIN_URL="https://developer.arm.com/-/media/Files/downloads/gnu/14.3.rel1/binrel/arm-gnu-toolchain-14.3.rel1-x86_64-arm-none-linux-gnueabihf.tar.xz"
@@ -40,16 +54,6 @@ else
 fi
 
 CROSS_COMPILE="$TOOLCHAIN_PATH/bin/arm-none-linux-gnueabihf-"
-
-# ----------------------------
-# Clone busybox
-# ----------------------------
-if [ ! -d "$SOURCE_PATH/.git" ]; then
-    echo "${GREEN}[FETCH] Cloning BusyBox repository...${RESET}"
-    git clone --depth=1 --branch="$SOURCE_BRANCH" "$SOURCE_REPO" "$SOURCE_PATH"
-else
-    echo "${YELLOW}[FETCH] BusyBox source already exists${RESET}"
-fi
 
 # Create output directory
 if [ ! -d "$OUTPUT_PATH" ]; then
