@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
+# -----------------------
+# Define variables
+# -----------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 
 # Colors
@@ -10,9 +13,6 @@ YELLOW=$(tput setaf 3)
 BOLD=$(tput bold)
 RESET=$(tput sgr0)
 
-# -----------------------
-# Define variables
-# -----------------------
 CURRENT_USER="${SUDO_USER:-$(id -un)}"
 
 ALPINE_VERSION="3.22.2"
@@ -26,8 +26,8 @@ ALPINE_ROOTFS_UNARCHIVED="$SCRIPT_DIR/rootfs"
 ALPINE_ROOTFS_OUTPUT="$SCRIPT_DIR/alpine-rootfs.qcow2"
 
 HOST_PLATFORM=$(uname -m)
-#ARM_EMULATOR=$(which qemu-arm-static)
-ARM_EMULATOR=/usr/bin/qemu-arm-static
+ARM_EMULATOR=$(which qemu-arm-static)
+#ARM_EMULATOR=/usr/bin/qemu-arm-static
 
 NBD_DEV="/dev/nbd0"
 PART_DEV="${NBD_DEV}p1"
@@ -69,7 +69,6 @@ cleanup() {
     safe_umount "$MOUNT_POINT/proc"
     safe_umount "$MOUNT_POINT/sys"
     safe_umount "$MOUNT_POINT/dev"
-    safe_umount "$MOUNT_POINT/etc/resolv.conf"
     safe_umount "$MOUNT_POINT"
     if [ -d "$MOUNT_POINT" ]; then
         rmdir "$MOUNT_POINT" || true
@@ -82,25 +81,24 @@ cleanup() {
 trap cleanup EXIT
 
 error_handler() {
-    local exit_code=$?
-    local line_no=$1
-    log_error "${BOLD}Error at line $line_no: $BASH_COMMAND (code: $exit_code)"
-    cleanup
+    local exit_code=$1
+    local line_no=$2
+    log_error "${BOLD}ERROR at line $line_no in ${BASH_SOURCE[0]} (code $exit_code)"
     exit "$exit_code"
 }
-trap 'error_handler $LINENO' ERR
+trap 'error_handler $? $LINENO' ERR
 
 # -----------------------
 # Check requirements
 # -----------------------
 if [[ $EUID -ne 0 ]]; then
     log_error "Error: This script must be run as root (or using sudo). Aborting."
-    exit 1
+    false
 fi
 
 if [ "$HOST_PLATFORM" != "armv7l" ] && [ ! -x "$ARM_EMULATOR" ]; then
     log_error "Error: $ARM_EMULATOR is not found. Aborting."
-    exit 1
+    false
 fi
 
 # -----------------------
@@ -125,10 +123,11 @@ main() {
     log_info "Generate partition on $NBD_DEV..."
     echo 'type=83, bootable' | sfdisk "$NBD_DEV" --force
     partprobe "$NBD_DEV"
+    udevadm settle --timeout=5 || log_info "Warning: udev did not settle within timeout"
 
     if [ ! -b "$PART_DEV" ]; then
         log_error "Error: Partition device $PART_DEV not found after partprobe. Aborting."
-        exit 1
+        return 1
     fi
 
     log_info "Format $PART_DEV..."
@@ -146,11 +145,8 @@ main() {
     chmod 755 "$MOUNT_POINT/usr/bin/qemu-arm-static"
 
     if [ -f /etc/resolv.conf ]; then
-        log_info "Bind-mount /etc/resolv.conf..."
-        if [ ! -e "$MOUNT_POINT/etc/resolv.conf" ]; then
-            touch "$MOUNT_POINT/etc/resolv.conf"
-        fi
-        mount --bind /etc/resolv.conf "$MOUNT_POINT/etc/resolv.conf"
+        log_info "Copy /etc/resolv.conf into $MOUNT_POINT/etc/resolv.conf..."
+        cp /etc/resolv.conf "$MOUNT_POINT/etc/resolv.conf"
     fi
 
     log_info "Mount pseudo-fs at $MOUNT_POINT..."
@@ -183,6 +179,11 @@ main() {
 
     log_info "[chroot] Configure sudoers..."
     run_chroot "sed -i 's/^# \(%wheel ALL=(ALL:ALL) NOPASSWD: ALL\)/\1/' /etc/sudoers"
+
+    log_info "[chroot] Configure shared directory..."
+    run_chroot "
+        mkdir -p /share
+        echo 'share /share 9p trans=virtio,version=9p2000.L,msize=262144,cache=mmap 0 0' >>/etc/fstab"
 
     sync
 
